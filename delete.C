@@ -43,7 +43,7 @@ const Status QU_Delete(const string & relation,
 		int tint;
 		float fint;
 		
-		switch(ad.attrType) {
+		switch(type) {
 			case INTEGER: 
 				tint = atoi(attrValue);
 				filter = (char *)&tint;
@@ -53,7 +53,7 @@ const Status QU_Delete(const string & relation,
 				filter = (char *)&fint;
 				break;
 			case STRING: 
-				filter = (char *)&attrValue;
+				filter = (char *)attrValue;
 				break;
 		}
 
