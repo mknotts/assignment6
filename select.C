@@ -28,11 +28,11 @@ const Status QU_Select(const string & result,
 {
    // Qu_Select sets up things and then calls ScanSelect to do the actual work
     cout << "Doing QU_Select " << endl;
-    Status status; 
+    Status status = OK; 
     AttrDesc attrDescArray[projCnt];
     for (int i = 0; i < projCnt; i++)
     {
-        Status status = attrCat->getInfo(projNames[i].relName,
+        status = attrCat->getInfo(projNames[i].relName,
                                          projNames[i].attrName,
                                          attrDescArray[i]);
         if (status != OK)
@@ -42,7 +42,6 @@ const Status QU_Select(const string & result,
     }
     AttrDesc attrDesc;
     if (attr != NULL){
-        cout << "attr is null" << endl;
         status = attrCat->getInfo(attr->relName,
                                      attr->attrName,
                                      attrDesc);
@@ -57,8 +56,12 @@ const Status QU_Select(const string & result,
     {
         reclen += attrDescArray[i].attrLen;
     }
-    ScanSelect(result, projCnt, attrDescArray, &attrDesc, op, attrValue, reclen);
 
+    if (attr != NULL){
+        ScanSelect(result, projCnt, attrDescArray, &attrDesc, op, attrValue, reclen);
+    } else {
+        ScanSelect(result, projCnt, attrDescArray, NULL, op, attrValue, reclen);
+    }
     return status;
 }
 
@@ -80,12 +83,6 @@ const Status ScanSelect(const string & result,
 	// open the result table
     InsertFileScan resultRel(result, status);
     if (status != OK) { return status; }
-
-    char outputData[reclen];
-    Record outputRec;
-    outputRec.data = (void *) outputData;
-    outputRec.length = reclen;
-    
     // scan table
     RID selectRID;
     Record selectRec;
@@ -93,29 +90,67 @@ const Status ScanSelect(const string & result,
     Operator myop;
     switch(op) {
       case EQ:   myop=EQ; break;
-      case GT:   myop=LT; break;
-      case GTE:  myop=LTE; break;
-      case LT:   myop=GT; break;
-      case LTE:  myop=GTE; break;
+      case GT:   myop=GT; break;
+      case GTE:  myop=GTE; break;
+      case LT:   myop=LT; break;
+      case LTE:  myop=LTE; break;
       case NE:   myop=NE; break;
     }
-
     // start scan on table
-    cout << "line 104" << endl;
-    HeapFileScan selectScan(string((*attrDesc).relName), status);
-    cout << "line 106" << endl;
-    if (status != OK) { return status; }
-    status = selectScan.startScan(attrDesc->attrOffset,
-                                 attrDesc->attrLen,
-                                 (Datatype) attrDesc->attrType,
-                                 filter,
-                                 myop);
-    if (status != OK) { return status; }
 
+    string filename = "";
+    if (attrDesc == NULL){
+        filename = string(projNames[0].relName);
+    } else {
+        filename = attrDesc->relName;
+    }
+    HeapFileScan selectScan(filename, status);
+    if (status != OK) { return status; }
+    if (attrDesc == NULL){
+        status = selectScan.startScan(0,
+                                    0,
+                                    STRING,
+                                    NULL,
+                                    EQ);
+        if (status != OK) { return status; }
+    } else {
+        int tint;
+        float fint;
+        switch((Datatype) attrDesc->attrType){
+            case INTEGER:
+                cout << "is integer" << endl;
+                tint = atoi(filter);
+                cout << "tint: " << tint << endl;
+                filter = (char*)(&tint);
+                cout << "filter: " << atoi(filter) << endl;
+                break;
+            case FLOAT:
+                cout << "is float" << endl;
+                fint = atof(filter);
+                cout << "fint: " << fint << endl;
+                filter = (char*)(&fint);
+                cout << "filter: " << atof(filter) << endl;
+                break;
+            case STRING:
+                cout << "is string" << endl;
+                break;
+        }
+        status = selectScan.startScan(attrDesc->attrOffset,
+                                    attrDesc->attrLen,
+                                    (Datatype) attrDesc->attrType,
+                                    filter,
+                                    myop);
+        if (status != OK) { return status; }
+    }
+
+    char outputData[reclen];
+    Record outputRec;
+    outputRec.data = (void *) outputData;
+    outputRec.length = reclen;
     while (selectScan.scanNext(selectRID) == OK)
-    {
+    {        
 		status = selectScan.getRecord(selectRec);
-		ASSERT(status == OK);
+		if (status != OK) { return status; }
 		// we have a match, copy data into the output record
 		int outputOffset = 0;
 		for (int i = 0; i < projCnt; i++)
@@ -130,7 +165,7 @@ const Status ScanSelect(const string & result,
 		// add the new record to the output relation
 		RID outRID;
 		status = resultRel.insertRecord(outputRec, outRID);
-		ASSERT(status == OK);
+		if (status != OK) { return status; }
 		resultTupCnt++;
     } // end scan 
     return status;
