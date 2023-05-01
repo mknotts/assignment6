@@ -29,7 +29,6 @@ const Status QU_Select(const string & result,
    // Qu_Select sets up things and then calls ScanSelect to do the actual work
     cout << "Doing QU_Select " << endl;
     Status status; 
-
     AttrDesc attrDescArray[projCnt];
     for (int i = 0; i < projCnt; i++)
     {
@@ -41,23 +40,23 @@ const Status QU_Select(const string & result,
             return status;
         }
     }
-
     AttrDesc attrDesc;
-    status = attrCat->getInfo(attr->relName,
+    if (attr != NULL){
+        cout << "attr is null" << endl;
+        status = attrCat->getInfo(attr->relName,
                                      attr->attrName,
                                      attrDesc);
-    if (status != OK)
-    {
-        return status;
+        if (status != OK)
+        {
+            return status;
+        }
     }
-
     // get output record length from attrdesc structures
     int reclen = 0;
     for (int i = 0; i < projCnt; i++)
     {
         reclen += attrDescArray[i].attrLen;
     }
-
     ScanSelect(result, projCnt, attrDescArray, &attrDesc, op, attrValue, reclen);
 
     return status;
@@ -102,7 +101,9 @@ const Status ScanSelect(const string & result,
     }
 
     // start scan on table
+    cout << "line 104" << endl;
     HeapFileScan selectScan(string((*attrDesc).relName), status);
+    cout << "line 106" << endl;
     if (status != OK) { return status; }
     status = selectScan.startScan(attrDesc->attrOffset,
                                  attrDesc->attrLen,
@@ -120,12 +121,9 @@ const Status ScanSelect(const string & result,
 		for (int i = 0; i < projCnt; i++)
 		{
 			// copy the data out of the proper input file (inner vs. outer)
-			if (0 == strcmp(projNames[i].relName, attrDesc->relName))
-			{
-				memcpy(outputData + outputOffset,
-						(char *)selectRec.data + projNames[i].attrOffset,
-						projNames[i].attrLen);
-			}
+            memcpy(outputData + outputOffset,
+                    (char *)selectRec.data + projNames[i].attrOffset,
+                    projNames[i].attrLen);
 			outputOffset += projNames[i].attrLen;
 		} // end copy attrs
 

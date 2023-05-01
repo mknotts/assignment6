@@ -26,7 +26,7 @@ const Status QU_Delete(const string & relation,
 	hfs = new HeapFileScan(relation, status);
 	if (status != OK) return status;
 
-	AttrDesc *ad;
+	AttrDesc ad;
 
 	if (attrName == "") {
 		status = hfs->startScan(0, 0, type, NULL, op);
@@ -34,12 +34,12 @@ const Status QU_Delete(const string & relation,
 			return status;
 		}
 	} else {
-		status = attrCat->getInfo(relation, attrName, &ad);
+		status = attrCat->getInfo(relation, attrName, ad);
 		if (status != OK) {
 			return status;
 		}
 
-		status = hfs->startScan(ad->attrOffset, ad->attrLen, ad->attrType, relation.c_str(), op);
+		status = hfs->startScan(ad.attrOffset, ad.attrLen, (Datatype) ad.attrType, relation.c_str(), op);
 	}
 
 	while((hfs->scanNext(rid)) == OK) {
