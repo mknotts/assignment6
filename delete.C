@@ -39,7 +39,25 @@ const Status QU_Delete(const string & relation,
 			return status;
 		}
 
-		status = hfs->startScan(ad.attrOffset, ad.attrLen, (Datatype) ad.attrType, relation.c_str(), op);
+		char *filter;
+		int tint;
+		float fint;
+		
+		switch(ad.attrType) {
+			case INTEGER: 
+				tint = atoi(attrValue);
+				filter = (char *)&tint;
+				break;
+			case FLOAT: 
+				fint = atof(attrValue);
+				filter = (char *)&fint;
+				break;
+			case STRING: 
+				filter = (char *)&attrValue;
+				break;
+		}
+
+		status = hfs->startScan(ad.attrOffset, ad.attrLen, (Datatype) ad.attrType, filter, op);
 	}
 
 	while((hfs->scanNext(rid)) == OK) {
