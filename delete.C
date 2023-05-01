@@ -16,11 +16,42 @@ const Status QU_Delete(const string & relation,
 		       const Datatype type, 
 		       const char *attrValue)
 {
-// part 6
-return OK;
+	if (relation.empty())
+    	return BADCATPARM;
 
+	Status status;
+	RID rid;
 
+	HeapFileScan* hfs;
+	hfs = new HeapFileScan(relation, status);
+	if (status != OK) return status;
 
+	AttrDesc *ad;
+
+	if (attrName == "") {
+		status = hfs->startScan(0, 0, type, NULL, op);
+		if (status != OK) {
+			return status;
+		}
+	} else {
+		status = attrCat->getInfo(relation, attrName, &ad);
+		if (status != OK) {
+			return status;
+		}
+
+		status = hfs->startScan(ad->attrOffset, ad->attrLen, ad->attrType, relation.c_str(), op);
+	}
+
+	while((hfs->scanNext(rid)) == OK) {
+		hfs->deleteRecord();
+	}
+
+	hfs->endScan();
+
+	delete hfs;
+	
+	// part 6
+	return OK;
 }
 
 
