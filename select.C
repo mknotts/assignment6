@@ -79,13 +79,11 @@ const Status ScanSelect(const string & result,
     cout << "Doing HeapFileScan Selection using ScanSelect()" << endl;
 
     Status status = OK;
-    int resultTupCnt = 0;
+    //int resultTupCnt = 0;
 	// open the result table
     InsertFileScan resultRel(result, status);
     if (status != OK) { return status; }
     // scan table
-    RID selectRID;
-    Record selectRec;
     
     Operator myop;
     switch(op) {
@@ -104,10 +102,11 @@ const Status ScanSelect(const string & result,
     } else {
         filename = attrDesc->relName;
     }
-    HeapFileScan selectScan(filename, status);
+    HeapFileScan * selectScan;
+    selectScan = new HeapFileScan(filename, status);
     if (status != OK) { return status; }
     if (attrDesc == NULL){
-        status = selectScan.startScan(0,
+        status = selectScan->startScan(0,
                                     0,
                                     STRING,
                                     NULL,
@@ -118,56 +117,64 @@ const Status ScanSelect(const string & result,
         float fint;
         switch((Datatype) attrDesc->attrType){
             case INTEGER:
-                cout << "is integer" << endl;
+                //cout << "is integer" << endl;
                 tint = atoi(filter);
-                cout << "tint: " << tint << endl;
+                //cout << "filter: " << tint << endl;
                 filter = (char*)(&tint);
-                cout << "filter: " << atoi(filter) << endl;
                 break;
             case FLOAT:
-                cout << "is float" << endl;
+                //cout << "is float" << endl;
                 fint = atof(filter);
-                cout << "fint: " << fint << endl;
+                //cout << "filter: " << fint << endl;
                 filter = (char*)(&fint);
-                cout << "filter: " << atof(filter) << endl;
                 break;
             case STRING:
-                cout << "is string" << endl;
+                //cout << "is string" << endl;
                 break;
         }
-        status = selectScan.startScan(attrDesc->attrOffset,
+        status = selectScan->startScan(attrDesc->attrOffset,
                                     attrDesc->attrLen,
                                     (Datatype) attrDesc->attrType,
                                     filter,
                                     myop);
         if (status != OK) { return status; }
     }
-
-    char outputData[reclen];
-    Record outputRec;
-    outputRec.data = (void *) outputData;
-    outputRec.length = reclen;
-    while (selectScan.scanNext(selectRID) == OK)
+    RID selectRID;
+    Record selectRec;
+    while (selectScan->scanNext(selectRID) == OK)
     {        
-		status = selectScan.getRecord(selectRec);
+        // we have a match, copy data into the output record
+        //cout << "loop running" << endl;
+
+        // initializing output record
+        char outputData[reclen];
+        Record outputRec;
+        outputRec.data = (void *) outputData;
+        outputRec.length = reclen;
+
+        // getting selected record
+        status = selectScan->getRecord(selectRec);
 		if (status != OK) { return status; }
-		// we have a match, copy data into the output record
+
+        // coping data from selected record into output record
 		int outputOffset = 0;
 		for (int i = 0; i < projCnt; i++)
 		{
-			// copy the data out of the proper input file (inner vs. outer)
             memcpy(outputData + outputOffset,
                     (char *)selectRec.data + projNames[i].attrOffset,
                     projNames[i].attrLen);
 			outputOffset += projNames[i].attrLen;
-		} // end copy attrs
+		} 
 
 		// add the new record to the output relation
 		RID outRID;
 		status = resultRel.insertRecord(outputRec, outRID);
 		if (status != OK) { return status; }
-		resultTupCnt++;
+		//resultTupCnt++;
     } // end scan 
+    selectScan->endScan();
+    delete selectScan;
+    //cout << "line 172" << endl;
     return status;
 
 }
